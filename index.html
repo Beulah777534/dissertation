@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Evidence triage across twelve Windows XP memory images. MSc Cyber Security and Technology, Cardiff University.">
+<meta name="author" content="Beulah Vangapandu">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%230066cc%22/%3E%3Ctext x=%2216%22 y=%2222%22 font-family=%22monospace%22 font-size=%2213%22 font-weight=%22700%22 fill=%22white%22 text-anchor=%22middle%22%3EMZ%3C/text%3E%3C/svg%3E">
+<title>Forensic Evidence Triage</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap">
+<style>
+/* Layout: full-bleed tiles stacked with no gap, alternating light and dark.
+   The surface change is the section divider; there is no other chrome. */
+:root{
+  /* accent — the only interactive colour */
+  --primary:#0066cc; --primary-focus:#0071e3; --primary-on-dark:#2997ff;
+  /* surfaces */
+  --canvas:#ffffff; --canvas-parchment:#f5f5f7; --surface-pearl:#fafafc;
+  --surface-tile-1:#272729; --surface-tile-2:#2a2a2c; --surface-tile-3:#252527;
+  /* text */
+  --ink:#1d1d1f; --body-on-dark:#ffffff; --body-muted:#cccccc;
+  --ink-muted-80:#333333; --ink-muted-48:#7a7a7a;
+  /* lines */
+  --divider-soft:#f0f0f0; --hairline:#e0e0e0;
+  /* type */
+  --sans:"Inter",system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  /* spacing, 8px base */
+  --xxs:4px; --xs:8px; --sm:12px; --md:17px; --lg:24px; --xl:32px; --xxl:48px; --section:80px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--canvas);color:var(--ink);font-family:var(--sans);
+  font-size:17px;font-weight:400;line-height:1.47;letter-spacing:-.374px;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+p{margin:0}
+
+/* ---------- global nav ---------- */
+.nav{background:#000;height:44px;display:flex;align-items:center;
+  padding-inline:var(--lg);position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+.nav span{color:var(--body-on-dark);font-size:12px;letter-spacing:0;opacity:.88}
+.nav .sep{opacity:.4;margin-inline:var(--sm)}
+
+/* ---------- tiles ---------- */
+.tile{padding-block:var(--section);padding-inline:var(--lg)}
+.tile.light{background:var(--canvas)}
+.tile.parchment{background:var(--canvas-parchment)}
+.tile.dark{background:var(--surface-tile-1);color:var(--body-on-dark)}
+.tile.dark-2{background:var(--surface-tile-2);color:var(--body-on-dark)}
+.inner{max-width:980px;margin:0 auto}
+.inner.wide{max-width:1440px}
+
+.hero h1{font-size:40px;line-height:1.10;letter-spacing:-.2px}
+.hero .lead{font-size:28px;font-weight:400;line-height:1.14;letter-spacing:.196px;
+  color:var(--ink-muted-80);margin-top:var(--md);max-width:22ch}
+.hero .meta{font-size:14px;line-height:1.43;letter-spacing:-.224px;
+  color:var(--ink-muted-48);margin-top:var(--lg)}
+
+h2.display{font-size:40px;line-height:1.10;letter-spacing:0}
+.tagline{font-size:21px;font-weight:600;line-height:1.19;letter-spacing:.231px}
+.airy{font-size:24px;font-weight:300;line-height:1.5;letter-spacing:0}
+.caption{font-size:14px;line-height:1.43;letter-spacing:-.224px;color:var(--ink-muted-48)}
+.dark .caption,.dark-2 .caption{color:var(--body-muted)}
+
+/* ---------- hex exhibit (the one image-like moment) ---------- */
+.hexwrap{overflow-x:auto;margin-top:var(--xl);padding-bottom:var(--xs)}
+.hex{display:inline-block;white-space:nowrap;font-family:var(--mono);font-size:17px;
+  letter-spacing:0;font-variant-numeric:tabular-nums;line-height:1.6}
+.hex .off{color:#8a8a8e}
+.hex .sig{color:var(--primary-on-dark);font-weight:700}
+.hex .asc{color:var(--body-muted)}
+.hex .asc em{font-style:normal;color:var(--primary-on-dark);font-weight:700}
+
+/* ---------- figures ---------- */
+.figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:var(--lg);margin-top:var(--xl)}
+.fig .n{font-size:40px;font-weight:600;line-height:1.1;letter-spacing:0;
+  font-variant-numeric:tabular-nums}
+.fig .k{font-size:14px;line-height:1.43;letter-spacing:-.224px;color:var(--ink-muted-48);
+  margin-top:var(--xxs)}
+.dark .fig .k{color:var(--body-muted)}
+.fig.mark .n{color:var(--primary)}
+.dark .fig.mark .n{color:var(--primary-on-dark)}
+
+/* ---------- listing ---------- */
+.listing{margin-top:var(--xl);width:100%;border-collapse:collapse}
+.listing th{font-size:12px;font-weight:600;letter-spacing:-.12px;color:var(--ink-muted-48);
+  text-align:left;padding:0 var(--sm) var(--sm);border-bottom:1px solid var(--hairline);
+  white-space:nowrap}
+.listing th.r,.listing td.r{text-align:right}
+.listing td{padding:var(--sm);border-bottom:1px solid var(--divider-soft);font-size:17px;
+  letter-spacing:-.374px}
+.listing td.num{font-variant-numeric:tabular-nums}
+tr.row{cursor:pointer}
+tr.row:hover td{background:var(--surface-pearl)}
+tr.row.open td{background:var(--surface-pearl);border-bottom-color:transparent}
+tr.row:focus-visible{outline:2px solid var(--primary-focus);outline-offset:-2px}
+tr.row td:first-child{font-weight:600}
+.disc{color:var(--primary);font-weight:400;display:inline-block;width:18px}
+.state{font-size:12px;font-weight:600;letter-spacing:-.12px;padding:var(--xxs) var(--sm);
+  border-radius:9999px;white-space:nowrap;display:inline-block}
+.state.none{background:var(--canvas-parchment);color:var(--ink-muted-48)}
+.state.high{background:var(--primary);color:#fff}
+.state.medium{background:rgba(0,102,204,.12);color:var(--primary)}
+.state.low{background:var(--canvas-parchment);color:var(--ink-muted-80)}
+td.pe{font-weight:600;color:var(--primary)}
+td.pe.zero{font-weight:400;color:var(--ink-muted-48)}
+
+/* ---------- expanded detail: utility cards ---------- */
+tr.detail>td{padding:0;border-bottom:1px solid var(--divider-soft);background:var(--surface-pearl)}
+.detail-pad{padding:var(--lg) 0 var(--xl)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--lg)}
+/* The process table has seven columns, so its card takes the larger share on desktop. */
+@media (min-width:1000px){
+  .cards{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) minmax(0,1fr)}
+}
+.card{background:var(--canvas);border:1px solid rgba(0,0,0,.08);border-radius:18px;
+  padding:var(--lg);min-width:0}
+.card h3{font-size:17px;font-weight:600;line-height:1.24;letter-spacing:-.374px;
+  margin-bottom:var(--sm)}
+.trace{display:flex;flex-direction:column;gap:var(--sm)}
+.trace-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--sm);align-items:baseline}
+.trace-row .p{font-size:17px;font-weight:600;color:var(--primary);font-variant-numeric:tabular-nums}
+.trace-row .f{font-size:17px;font-weight:600;letter-spacing:-.374px}
+.trace-row .d{font-size:14px;line-height:1.43;letter-spacing:-.224px;color:var(--ink-muted-80);
+  margin-top:var(--xxs)}
+.quiet{font-size:14px;line-height:1.43;letter-spacing:-.224px;color:var(--ink-muted-80)}
+.quiet b{font-weight:600;color:var(--ink)}
+.kv{width:100%;font-size:14px;letter-spacing:-.224px}
+.kv td{padding:var(--xs) 0;border-bottom:1px solid var(--divider-soft)}
+.kv td.r{text-align:right;font-variant-numeric:tabular-nums;width:76px;font-weight:600}
+.kv tr.grp td{padding-top:var(--md);border-bottom:0;font-size:12px;font-weight:600;
+  letter-spacing:-.12px;color:var(--ink-muted-48)}
+.kv tr:last-child td{border-bottom:0}
+
+.chips{display:flex;flex-wrap:wrap;gap:var(--xs);margin-bottom:var(--sm)}
+.chip{all:unset;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:400;
+  letter-spacing:-.224px;padding:var(--sm) var(--md);border-radius:9999px;
+  background:var(--canvas-parchment);color:var(--ink);border:2px solid transparent}
+.chip[aria-pressed="true"]{border-color:var(--primary-focus);background:var(--canvas)}
+.chip:focus-visible{outline:2px solid var(--primary-focus);outline-offset:2px}
+.plist{max-height:320px;overflow:auto}
+.plist table{width:100%;border-collapse:collapse;font-size:14px;letter-spacing:-.224px}
+.plist td{padding:var(--xs) 4px;border-bottom:1px solid var(--divider-soft);
+  font-variant-numeric:tabular-nums}
+.plist td:first-child{font-variant-numeric:normal}
+.plist th{position:sticky;top:0;background:var(--canvas);padding:var(--xs) 4px;text-align:right;
+  font-size:12px;font-weight:600;color:var(--ink-muted-48);border-bottom:1px solid var(--divider-soft)}
+.plist th:first-child{text-align:left}
+.plist tr.hit td{background:rgba(0,102,204,.07)}
+.plist tr.hit td:first-child{font-weight:600}
+.empty{font-size:14px;color:var(--ink-muted-48);padding:var(--sm) 0}
+.scroll{overflow-x:auto}
+
+/* ---------- footer ---------- */
+footer{background:var(--canvas-parchment);padding:64px var(--lg)}
+footer .inner{display:flex;flex-wrap:wrap;gap:var(--lg);justify-content:space-between}
+footer p{font-size:12px;line-height:1.6;letter-spacing:-.12px;color:var(--ink-muted-48)}
+
+@media(max-width:1068px){ .hero h1{font-size:34px} }
+@media(max-width:640px){
+  .tile{padding-block:var(--xxl)}
+  .hero h1{font-size:34px}
+  .hero .lead{font-size:21px}
+  h2.display{font-size:28px}
+  .listing th.hide,.listing td.hide{display:none}
+}
+@media(max-width:419px){ .hero h1{font-size:28px} }
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+
+
+
+
+
+<nav class="nav"><span>Forensic Evidence Triage</span><span class="sep">&middot;</span><span>Cardiff University</span></nav>
+
+<section class="tile light hero">
+  <div class="inner">
+    <h1>AI-Assisted Crime Scene Digital Device Discovery
+      and Forensic Evidence Triage System</h1>
+    <p class="lead">Which image should the investigator open first?</p>
+    <p class="meta">Beulah Vangapandu &middot; MSc Cyber Security and Technology, Cardiff University<br>
+      Twelve Windows&nbsp;XP memory images &middot; Volatility&nbsp;3 Framework&nbsp;2.28.2</p>
+  </div>
+</section>
+
+<section class="tile dark" aria-labelledby="ex-h">
+  <div class="inner">
+    <h2 class="display" id="ex-h">Two bytes separate the corpus.</h2>
+    <div class="hexwrap"><div class="hex" id="hexrow"></div></div>
+    <p class="airy" style="margin-top:var(--lg);max-width:60ch">Injected executable memory is ordinary on Windows&nbsp;XP. <span style="color:var(--body-on-dark)">csrss.exe</span> carries it on all nine non-malware images here. A region that <span style="color:var(--primary-on-dark)">opens with 4d 5a</span> is not ordinary: those bytes are the DOS header of a Windows executable, so the region holds a mapped program rather than the fragments a runtime compiler leaves behind.</p>
+  </div>
+</section>
+
+<section class="tile parchment" aria-labelledby="fig-h">
+  <div class="inner">
+    <h2 class="tagline" id="fig-h">The corpus at a glance</h2>
+    <div class="figures">
+      <div class="fig"><div class="n">12</div><div class="k">memory images</div></div>
+      <div class="fig"><div class="n">464</div><div class="k">processes</div></div>
+      <div class="fig"><div class="n" id="f-reg">0</div><div class="k">injected regions</div></div>
+      <div class="fig mark"><div class="n" id="f-pe">0</div><div class="k">of those, mapped programs</div></div>
+      <div class="fig mark"><div class="n" id="f-imgs">0</div><div class="k">images carrying one</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="tile light" aria-labelledby="li-h">
+  <div class="inner wide">
+    <h2 class="display" id="li-h">Evidence listing</h2>
+    <p class="caption" style="margin-top:var(--sm)">Select any image to see the rule trace behind its verdict.</p>
+    <div class="scroll">
+      <table class="listing">
+        <thead><tr>
+          <th>Image</th><th class="hide">Source</th><th class="hide">Build</th>
+          <th class="r">Processes</th><th class="r">Regions</th><th class="r">Programs</th>
+          <th class="r">Score</th><th>Verdict</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="inner">
+    <p>windows.pslist &middot; windows.handles &middot; windows.cmdline<br>windows.dlllist &middot; windows.malfind</p>
+    <p>19 features per image &middot; rule score 0&ndash;6<br>Volatility 3 Framework 2.28.2</p>
+    <p>Beulah Vangapandu<br>MSc Cyber Security and Technology</p>
+  </div>
+</footer>
+
+<script id="corpus" type="application/json">{"dumps":[{"id":"XP-Clean-01","verdict":"None","score":0,"os":"Windows XP SP2 x86","source":"NIST CFReDS memory images","rules":[],"features":{"process_count":47,"unique_process_names":38,"total_threads":494,"total_handles":9470,"socket_endpoint_count":56,"tcp_handle_count":1030,"udp_handle_count":45,"network_handle_count":1169,"network_active_processes":16,"commandline_count":47,"powershell_count":0,"cmd_count":1,"dll_count":1668,"unique_dll_count":405,"malfind_region_count":20,"malfind_exec_write_regions":7,"malfind_affected_processes":9,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":61,"dlls":0,"sockets":1006,"regions":0,"pe":0},{"pid":448,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":504,"name":"csrss.exe","threads":12,"dlls":11,"sockets":0,"regions":1,"pe":0},{"pid":528,"name":"winlogon.exe","threads":21,"dlls":64,"sockets":5,"regions":2,"pe":0},{"pid":580,"name":"services.exe","threads":18,"dlls":43,"sockets":0,"regions":0,"pe":0},{"pid":592,"name":"lsass.exe","threads":21,"dlls":58,"sockets":13,"regions":0,"pe":0},{"pid":740,"name":"svchost.exe","threads":17,"dlls":49,"sockets":0,"regions":0,"pe":0},{"pid":800,"name":"svchost.exe","threads":10,"dlls":41,"sockets":12,"regions":0,"pe":0},{"pid":840,"name":"svchost.exe","threads":83,"dlls":158,"sockets":18,"regions":5,"pe":0},{"pid":876,"name":"Smc.exe","threads":22,"dlls":78,"sockets":10,"regions":2,"pe":0},{"pid":984,"name":"svchost.exe","threads":6,"dlls":31,"sockets":10,"regions":0,"pe":0},{"pid":1024,"name":"svchost.exe","threads":15,"dlls":44,"sockets":9,"regions":0,"pe":0},{"pid":1224,"name":"spoolsv.exe","threads":12,"dlls":55,"sockets":0,"regions":0,"pe":0},{"pid":1632,"name":"ssonsvr.exe","threads":1,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":1812,"name":"explorer.exe","threads":22,"dlls":139,"sockets":6,"regions":1,"pe":0},{"pid":1936,"name":"Directcd.exe","threads":4,"dlls":25,"sockets":0,"regions":0,"pe":0},{"pid":1952,"name":"TaskSwitch.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0},{"pid":1960,"name":"Fast.exe","threads":1,"dlls":20,"sockets":0,"regions":0,"pe":0},{"pid":1980,"name":"VPTray.exe","threads":2,"dlls":35,"sockets":0,"regions":0,"pe":0},{"pid":2040,"name":"atiptaxx.exe","threads":1,"dlls":22,"sockets":0,"regions":0,"pe":0},{"pid":188,"name":"jusched.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0},{"pid":224,"name":"EM_EXEC.EXE","threads":2,"dlls":31,"sockets":0,"regions":0,"pe":0},{"pid":432,"name":"ati2evxx.exe","threads":4,"dlls":8,"sockets":0,"regions":0,"pe":0},{"pid":688,"name":"Crypserv.exe","threads":3,"dlls":12,"sockets":0,"regions":0,"pe":0},{"pid":864,"name":"DefWatch.exe","threads":3,"dlls":9,"sockets":0,"regions":0,"pe":0},{"pid":1076,"name":"msdtc.exe","threads":14,"dlls":39,"sockets":0,"regions":0,"pe":0},{"pid":1304,"name":"Rtvscan.exe","threads":37,"dlls":54,"sockets":2,"regions":0,"pe":0},{"pid":1400,"name":"tcpsvcs.exe","threads":2,"dlls":33,"sockets":21,"regions":0,"pe":0},{"pid":1424,"name":"snmp.exe","threads":5,"dlls":43,"sockets":8,"regions":0,"pe":0},{"pid":1484,"name":"svchost.exe","threads":6,"dlls":36,"sockets":0,"regions":0,"pe":0},{"pid":1548,"name":"wdfmgr.exe","threads":4,"dlls":14,"sockets":0,"regions":0,"pe":0},{"pid":1700,"name":"Fast.exe","threads":2,"dlls":17,"sockets":0,"regions":0,"pe":0},{"pid":1948,"name":"mqsvc.exe","threads":23,"dlls":57,"sockets":19,"regions":0,"pe":0},{"pid":2536,"name":"mqtgsvc.exe","threads":9,"dlls":35,"sockets":0,"regions":0,"pe":0},{"pid":2868,"name":"alg.exe","threads":6,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":2424,"name":"wuauclt.exe","threads":4,"dlls":52,"sockets":0,"regions":0,"pe":0},{"pid":2160,"name":"firefox.exe","threads":6,"dlls":58,"sockets":6,"regions":3,"pe":0},{"pid":944,"name":"PluckSvr.exe","threads":9,"dlls":52,"sockets":5,"regions":0,"pe":0},{"pid":2392,"name":"iexplore.exe","threads":9,"dlls":103,"sockets":16,"regions":3,"pe":0},{"pid":2740,"name":"PluckTray.exe","threads":3,"dlls":32,"sockets":0,"regions":1,"pe":0},{"pid":3076,"name":"PluckUpdater.ex","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1916,"name":"PluckUpdater.ex","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3256,"name":"PluckTray.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2624,"name":"cmd.exe","threads":1,"dlls":22,"sockets":0,"regions":0,"pe":0},{"pid":4080,"name":"wmiprvse.exe","threads":7,"dlls":0,"sockets":0,"regions":2,"pe":0},{"pid":3100,"name":"PluckTray.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":4012,"name":"dd.exe","threads":1,"dlls":13,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-Clean-02","verdict":"None","score":0,"os":"Windows XP SP3 x86","source":"M57-Patents scenario","rules":[],"features":{"process_count":58,"unique_process_names":33,"total_threads":594,"total_handles":12019,"socket_endpoint_count":21,"tcp_handle_count":450,"udp_handle_count":17,"network_handle_count":525,"network_active_processes":14,"commandline_count":58,"powershell_count":0,"cmd_count":1,"dll_count":1222,"unique_dll_count":417,"malfind_region_count":42,"malfind_exec_write_regions":9,"malfind_affected_processes":23,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":58,"dlls":0,"sockets":338,"regions":0,"pe":0},{"pid":828,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":924,"name":"csrss.exe","threads":14,"dlls":14,"sockets":0,"regions":3,"pe":0},{"pid":948,"name":"winlogon.exe","threads":18,"dlls":78,"sockets":5,"regions":2,"pe":0},{"pid":992,"name":"services.exe","threads":19,"dlls":39,"sockets":0,"regions":0,"pe":0},{"pid":1004,"name":"lsass.exe","threads":21,"dlls":58,"sockets":13,"regions":1,"pe":0},{"pid":1176,"name":"svchost.exe","threads":17,"dlls":48,"sockets":0,"regions":2,"pe":0},{"pid":1264,"name":"svchost.exe","threads":10,"dlls":38,"sockets":12,"regions":1,"pe":0},{"pid":1388,"name":"svchost.exe","threads":76,"dlls":165,"sockets":15,"regions":2,"pe":0},{"pid":1452,"name":"svchost.exe","threads":5,"dlls":32,"sockets":6,"regions":1,"pe":0},{"pid":1612,"name":"avgchsvx.exe","threads":23,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1680,"name":"avgrsx.exe","threads":28,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1748,"name":"svchost.exe","threads":12,"dlls":38,"sockets":8,"regions":1,"pe":0},{"pid":1848,"name":"avgcsrvx.exe","threads":8,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":268,"name":"spoolsv.exe","threads":10,"dlls":50,"sockets":0,"regions":1,"pe":0},{"pid":336,"name":"AVGIDSAgent.exe","threads":32,"dlls":58,"sockets":0,"regions":3,"pe":0},{"pid":488,"name":"explorer.exe","threads":12,"dlls":110,"sockets":5,"regions":1,"pe":0},{"pid":776,"name":"hkcmd.exe","threads":2,"dlls":0,"sockets":0,"regions":1,"pe":0},{"pid":504,"name":"avgtray.exe","threads":18,"dlls":0,"sockets":0,"regions":2,"pe":0},{"pid":112,"name":"jusched.exe","threads":1,"dlls":0,"sockets":0,"regions":1,"pe":0},{"pid":852,"name":"ctfmon.exe","threads":1,"dlls":0,"sockets":0,"regions":1,"pe":0},{"pid":868,"name":"msmsgs.exe","threads":2,"dlls":43,"sockets":5,"regions":1,"pe":0},{"pid":1216,"name":"AVGIDSMonitor.e","threads":3,"dlls":0,"sockets":0,"regions":1,"pe":0},{"pid":900,"name":"svchost.exe","threads":5,"dlls":0,"sockets":0,"regions":1,"pe":0},{"pid":1360,"name":"avgwdsvc.exe","threads":44,"dlls":48,"sockets":91,"regions":2,"pe":0},{"pid":1072,"name":"avgfws9.exe","threads":30,"dlls":87,"sockets":6,"regions":1,"pe":0},{"pid":1604,"name":"jqs.exe","threads":5,"dlls":33,"sockets":5,"regions":0,"pe":0},{"pid":2488,"name":"avgemc.exe","threads":20,"dlls":3,"sockets":8,"regions":2,"pe":0},{"pid":2552,"name":"avgam.exe","threads":15,"dlls":4,"sockets":0,"regions":0,"pe":0},{"pid":2636,"name":"avgcsrvx.exe","threads":3,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2676,"name":"avgnsx.exe","threads":42,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":772,"name":"alg.exe","threads":6,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":3832,"name":"avgcsrvx.exe","threads":7,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3860,"name":"avgsrmax.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2236,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2876,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3968,"name":"soffice.exe","threads":1,"dlls":0,"sockets":0,"regions":1,"pe":0},{"pid":3980,"name":"soffice.bin","threads":21,"dlls":202,"sockets":5,"regions":10,"pe":0},{"pid":3064,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1784,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2224,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3756,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3764,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3116,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3228,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":612,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3340,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2172,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3816,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3248,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2124,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3420,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2748,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":4040,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2368,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3112,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1572,"name":"cmd.exe","threads":1,"dlls":24,"sockets":0,"regions":0,"pe":0},{"pid":3616,"name":"mdd_1.3.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-Clean-03","verdict":"None","score":0,"os":"Windows XP SP3 x86","source":"M57-Patents scenario","rules":[],"features":{"process_count":48,"unique_process_names":33,"total_threads":572,"total_handles":12441,"socket_endpoint_count":23,"tcp_handle_count":500,"udp_handle_count":19,"network_handle_count":582,"network_active_processes":15,"commandline_count":48,"powershell_count":0,"cmd_count":1,"dll_count":1406,"unique_dll_count":428,"malfind_region_count":22,"malfind_exec_write_regions":11,"malfind_affected_processes":8,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":58,"dlls":0,"sockets":357,"regions":0,"pe":0},{"pid":880,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":928,"name":"csrss.exe","threads":13,"dlls":14,"sockets":0,"regions":1,"pe":0},{"pid":952,"name":"winlogon.exe","threads":18,"dlls":78,"sockets":5,"regions":2,"pe":0},{"pid":996,"name":"services.exe","threads":16,"dlls":39,"sockets":0,"regions":0,"pe":0},{"pid":1008,"name":"lsass.exe","threads":20,"dlls":58,"sockets":13,"regions":2,"pe":0},{"pid":1180,"name":"svchost.exe","threads":18,"dlls":48,"sockets":0,"regions":0,"pe":0},{"pid":1268,"name":"svchost.exe","threads":9,"dlls":38,"sockets":12,"regions":0,"pe":0},{"pid":1392,"name":"svchost.exe","threads":76,"dlls":164,"sockets":17,"regions":0,"pe":0},{"pid":1452,"name":"svchost.exe","threads":5,"dlls":32,"sockets":6,"regions":0,"pe":0},{"pid":1632,"name":"avgchsvx.exe","threads":23,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1640,"name":"avgrsx.exe","threads":28,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1756,"name":"svchost.exe","threads":13,"dlls":40,"sockets":8,"regions":0,"pe":0},{"pid":1816,"name":"avgcsrvx.exe","threads":8,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1904,"name":"spoolsv.exe","threads":10,"dlls":50,"sockets":0,"regions":0,"pe":0},{"pid":1932,"name":"AVGIDSAgent.exe","threads":30,"dlls":58,"sockets":6,"regions":2,"pe":0},{"pid":472,"name":"explorer.exe","threads":12,"dlls":110,"sockets":6,"regions":0,"pe":0},{"pid":744,"name":"avgtray.exe","threads":18,"dlls":32,"sockets":0,"regions":2,"pe":0},{"pid":188,"name":"hkcmd.exe","threads":2,"dlls":30,"sockets":0,"regions":0,"pe":0},{"pid":856,"name":"jusched.exe","threads":1,"dlls":21,"sockets":0,"regions":0,"pe":0},{"pid":900,"name":"ctfmon.exe","threads":1,"dlls":25,"sockets":0,"regions":0,"pe":0},{"pid":924,"name":"msmsgs.exe","threads":3,"dlls":43,"sockets":5,"regions":1,"pe":0},{"pid":196,"name":"AVGIDSMonitor.e","threads":3,"dlls":22,"sockets":0,"regions":0,"pe":0},{"pid":788,"name":"svchost.exe","threads":5,"dlls":34,"sockets":0,"regions":0,"pe":0},{"pid":932,"name":"avgwdsvc.exe","threads":44,"dlls":48,"sockets":118,"regions":2,"pe":0},{"pid":896,"name":"avgfws9.exe","threads":30,"dlls":87,"sockets":6,"regions":0,"pe":0},{"pid":1384,"name":"jqs.exe","threads":5,"dlls":33,"sockets":5,"regions":0,"pe":0},{"pid":2376,"name":"avgemc.exe","threads":21,"dlls":3,"sockets":10,"regions":0,"pe":0},{"pid":2476,"name":"avgam.exe","threads":15,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2540,"name":"avgnsx.exe","threads":25,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2656,"name":"avgcsrvx.exe","threads":3,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":3976,"name":"alg.exe","threads":5,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":1320,"name":"avgcsrvx.exe","threads":7,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3180,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3656,"name":"soffice.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0},{"pid":2392,"name":"soffice.bin","threads":21,"dlls":200,"sockets":5,"regions":10,"pe":0},{"pid":3860,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2728,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3968,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1188,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3328,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3124,"name":"firefox.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3996,"name":"firefox.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":480,"name":"avgsrmax.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3684,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2148,"name":"soffice.bin","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3096,"name":"cmd.exe","threads":1,"dlls":24,"sockets":0,"regions":0,"pe":0},{"pid":3700,"name":"mdd_1.3.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-Low-01","verdict":"None","score":0,"os":"Windows XP SP3 x86","source":"M57-Patents scenario","rules":[],"features":{"process_count":44,"unique_process_names":35,"total_threads":580,"total_handles":12569,"socket_endpoint_count":21,"tcp_handle_count":398,"udp_handle_count":17,"network_handle_count":479,"network_active_processes":16,"commandline_count":44,"powershell_count":0,"cmd_count":1,"dll_count":1548,"unique_dll_count":411,"malfind_region_count":37,"malfind_exec_write_regions":9,"malfind_affected_processes":17,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":58,"dlls":0,"sockets":340,"regions":0,"pe":0},{"pid":824,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":920,"name":"csrss.exe","threads":14,"dlls":14,"sockets":0,"regions":3,"pe":0},{"pid":944,"name":"winlogon.exe","threads":17,"dlls":77,"sockets":5,"regions":9,"pe":0},{"pid":988,"name":"services.exe","threads":21,"dlls":39,"sockets":0,"regions":0,"pe":0},{"pid":1000,"name":"lsass.exe","threads":21,"dlls":58,"sockets":14,"regions":1,"pe":0},{"pid":1172,"name":"svchost.exe","threads":18,"dlls":48,"sockets":0,"regions":2,"pe":0},{"pid":1260,"name":"svchost.exe","threads":9,"dlls":38,"sockets":12,"regions":1,"pe":0},{"pid":1384,"name":"svchost.exe","threads":76,"dlls":164,"sockets":14,"regions":3,"pe":0},{"pid":1444,"name":"svchost.exe","threads":5,"dlls":32,"sockets":6,"regions":0,"pe":0},{"pid":1588,"name":"avgchsvx.exe","threads":23,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1596,"name":"avgrsx.exe","threads":28,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":1756,"name":"avgcsrvx.exe","threads":8,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1908,"name":"svchost.exe","threads":12,"dlls":40,"sockets":8,"regions":1,"pe":0},{"pid":440,"name":"spoolsv.exe","threads":11,"dlls":50,"sockets":0,"regions":0,"pe":0},{"pid":468,"name":"AVGIDSAgent.exe","threads":32,"dlls":63,"sockets":6,"regions":3,"pe":0},{"pid":476,"name":"explorer.exe","threads":12,"dlls":119,"sockets":5,"regions":1,"pe":0},{"pid":692,"name":"hkcmd.exe","threads":2,"dlls":30,"sockets":0,"regions":0,"pe":0},{"pid":704,"name":"avgtray.exe","threads":18,"dlls":32,"sockets":0,"regions":0,"pe":0},{"pid":712,"name":"jusched.exe","threads":1,"dlls":21,"sockets":0,"regions":1,"pe":0},{"pid":728,"name":"ctfmon.exe","threads":1,"dlls":25,"sockets":0,"regions":0,"pe":0},{"pid":744,"name":"msmsgs.exe","threads":3,"dlls":43,"sockets":5,"regions":1,"pe":0},{"pid":1140,"name":"AVGIDSMonitor.e","threads":3,"dlls":22,"sockets":0,"regions":1,"pe":0},{"pid":1320,"name":"soffice.exe","threads":1,"dlls":15,"sockets":0,"regions":1,"pe":0},{"pid":1344,"name":"soffice.bin","threads":7,"dlls":84,"sockets":0,"regions":3,"pe":0},{"pid":1360,"name":"svchost.exe","threads":5,"dlls":27,"sockets":0,"regions":0,"pe":0},{"pid":1504,"name":"avgwdsvc.exe","threads":43,"dlls":48,"sockets":32,"regions":2,"pe":0},{"pid":252,"name":"avgfws9.exe","threads":29,"dlls":87,"sockets":6,"regions":0,"pe":0},{"pid":1844,"name":"jqs.exe","threads":5,"dlls":33,"sockets":5,"regions":0,"pe":0},{"pid":1732,"name":"avgemc.exe","threads":20,"dlls":59,"sockets":8,"regions":1,"pe":0},{"pid":2124,"name":"avgam.exe","threads":15,"dlls":27,"sockets":0,"regions":0,"pe":0},{"pid":2172,"name":"avgnsx.exe","threads":28,"dlls":32,"sockets":0,"regions":0,"pe":0},{"pid":2920,"name":"avgcsrvx.exe","threads":3,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":3832,"name":"alg.exe","threads":5,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":2868,"name":"avgcsrvx.exe","threads":7,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":380,"name":"msimn.exe","threads":11,"dlls":92,"sockets":5,"regions":3,"pe":0},{"pid":1060,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3160,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":652,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2712,"name":"avgsrmax.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2820,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2504,"name":"cmd.exe","threads":1,"dlls":24,"sockets":0,"regions":0,"pe":0},{"pid":1560,"name":"taskmgr.exe","threads":3,"dlls":35,"sockets":5,"regions":0,"pe":0},{"pid":3652,"name":"mdd_1.3.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-Low-02","verdict":"None","score":0,"os":"Windows XP SP3 x86","source":"M57-Patents scenario","rules":[],"features":{"process_count":43,"unique_process_names":35,"total_threads":593,"total_handles":12681,"socket_endpoint_count":28,"tcp_handle_count":426,"udp_handle_count":17,"network_handle_count":517,"network_active_processes":17,"commandline_count":43,"powershell_count":0,"cmd_count":1,"dll_count":1636,"unique_dll_count":433,"malfind_region_count":37,"malfind_exec_write_regions":21,"malfind_affected_processes":13,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":58,"dlls":0,"sockets":360,"regions":0,"pe":0},{"pid":824,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":920,"name":"csrss.exe","threads":14,"dlls":14,"sockets":0,"regions":1,"pe":0},{"pid":944,"name":"winlogon.exe","threads":17,"dlls":86,"sockets":5,"regions":6,"pe":0},{"pid":988,"name":"services.exe","threads":18,"dlls":39,"sockets":0,"regions":0,"pe":0},{"pid":1000,"name":"lsass.exe","threads":22,"dlls":58,"sockets":13,"regions":1,"pe":0},{"pid":1172,"name":"svchost.exe","threads":18,"dlls":48,"sockets":0,"regions":0,"pe":0},{"pid":1260,"name":"svchost.exe","threads":10,"dlls":38,"sockets":12,"regions":0,"pe":0},{"pid":1384,"name":"svchost.exe","threads":79,"dlls":163,"sockets":15,"regions":0,"pe":0},{"pid":1448,"name":"svchost.exe","threads":5,"dlls":32,"sockets":6,"regions":0,"pe":0},{"pid":1620,"name":"avgchsvx.exe","threads":23,"dlls":16,"sockets":0,"regions":0,"pe":0},{"pid":1628,"name":"avgrsx.exe","threads":28,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":1752,"name":"svchost.exe","threads":12,"dlls":38,"sockets":8,"regions":0,"pe":0},{"pid":1852,"name":"avgcsrvx.exe","threads":8,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":168,"name":"spoolsv.exe","threads":10,"dlls":50,"sockets":0,"regions":0,"pe":0},{"pid":300,"name":"AVGIDSAgent.exe","threads":32,"dlls":63,"sockets":6,"regions":3,"pe":0},{"pid":1984,"name":"svchost.exe","threads":4,"dlls":34,"sockets":0,"regions":0,"pe":0},{"pid":128,"name":"avgwdsvc.exe","threads":43,"dlls":48,"sockets":26,"regions":2,"pe":0},{"pid":176,"name":"avgfws9.exe","threads":29,"dlls":87,"sockets":6,"regions":0,"pe":0},{"pid":464,"name":"jqs.exe","threads":5,"dlls":33,"sockets":5,"regions":0,"pe":0},{"pid":436,"name":"explorer.exe","threads":14,"dlls":112,"sockets":5,"regions":0,"pe":0},{"pid":2076,"name":"avgemc.exe","threads":21,"dlls":59,"sockets":10,"regions":1,"pe":0},{"pid":2140,"name":"avgam.exe","threads":15,"dlls":27,"sockets":0,"regions":1,"pe":0},{"pid":2264,"name":"avgnsx.exe","threads":25,"dlls":32,"sockets":0,"regions":0,"pe":0},{"pid":2280,"name":"avgcsrvx.exe","threads":3,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":2552,"name":"avgtray.exe","threads":18,"dlls":33,"sockets":0,"regions":2,"pe":0},{"pid":2620,"name":"hkcmd.exe","threads":2,"dlls":30,"sockets":0,"regions":0,"pe":0},{"pid":2640,"name":"jusched.exe","threads":2,"dlls":41,"sockets":8,"regions":0,"pe":0},{"pid":2672,"name":"ctfmon.exe","threads":1,"dlls":25,"sockets":0,"regions":0,"pe":0},{"pid":2684,"name":"msmsgs.exe","threads":3,"dlls":43,"sockets":5,"regions":1,"pe":0},{"pid":2876,"name":"soffice.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0},{"pid":2924,"name":"soffice.bin","threads":7,"dlls":84,"sockets":0,"regions":1,"pe":0},{"pid":3484,"name":"AVGIDSMonitor.e","threads":3,"dlls":22,"sockets":0,"regions":0,"pe":0},{"pid":3536,"name":"alg.exe","threads":6,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":2976,"name":"avgcsrvx.exe","threads":7,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2768,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2412,"name":"msimn.exe","threads":13,"dlls":96,"sockets":5,"regions":2,"pe":0},{"pid":1336,"name":"firefox.exe","threads":12,"dlls":77,"sockets":19,"regions":15,"pe":0},{"pid":2840,"name":"cmd.exe","threads":1,"dlls":23,"sockets":0,"regions":1,"pe":0},{"pid":860,"name":"avgscanx.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1288,"name":"avgsrmax.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2252,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1212,"name":"mdd_1.3.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-Low-03","verdict":"None","score":0,"os":"Windows XP SP3 x86","source":"M57-Patents scenario","rules":[],"features":{"process_count":47,"unique_process_names":34,"total_threads":579,"total_handles":12439,"socket_endpoint_count":26,"tcp_handle_count":424,"udp_handle_count":17,"network_handle_count":509,"network_active_processes":16,"commandline_count":47,"powershell_count":0,"cmd_count":1,"dll_count":1609,"unique_dll_count":471,"malfind_region_count":35,"malfind_exec_write_regions":22,"malfind_affected_processes":8,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":64,"dlls":0,"sockets":356,"regions":0,"pe":0},{"pid":876,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":924,"name":"csrss.exe","threads":13,"dlls":14,"sockets":0,"regions":3,"pe":0},{"pid":948,"name":"winlogon.exe","threads":18,"dlls":78,"sockets":5,"regions":11,"pe":0},{"pid":992,"name":"services.exe","threads":16,"dlls":39,"sockets":0,"regions":0,"pe":0},{"pid":1004,"name":"lsass.exe","threads":19,"dlls":58,"sockets":13,"regions":1,"pe":0},{"pid":1180,"name":"svchost.exe","threads":16,"dlls":48,"sockets":0,"regions":0,"pe":0},{"pid":1268,"name":"svchost.exe","threads":8,"dlls":38,"sockets":12,"regions":0,"pe":0},{"pid":1392,"name":"svchost.exe","threads":76,"dlls":167,"sockets":15,"regions":0,"pe":0},{"pid":1524,"name":"svchost.exe","threads":4,"dlls":32,"sockets":6,"regions":0,"pe":0},{"pid":1644,"name":"svchost.exe","threads":12,"dlls":40,"sockets":8,"regions":0,"pe":0},{"pid":1744,"name":"avgchsvx.exe","threads":23,"dlls":16,"sockets":0,"regions":0,"pe":0},{"pid":1752,"name":"avgrsx.exe","threads":28,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":1840,"name":"avgcsrvx.exe","threads":8,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":124,"name":"spoolsv.exe","threads":10,"dlls":50,"sockets":0,"regions":0,"pe":0},{"pid":276,"name":"AVGIDSAgent.exe","threads":31,"dlls":63,"sockets":6,"regions":2,"pe":0},{"pid":500,"name":"explorer.exe","threads":14,"dlls":124,"sockets":5,"regions":2,"pe":0},{"pid":692,"name":"hkcmd.exe","threads":2,"dlls":30,"sockets":0,"regions":0,"pe":0},{"pid":700,"name":"avgtray.exe","threads":18,"dlls":32,"sockets":0,"regions":2,"pe":0},{"pid":712,"name":"jusched.exe","threads":1,"dlls":21,"sockets":0,"regions":0,"pe":0},{"pid":736,"name":"ctfmon.exe","threads":1,"dlls":25,"sockets":0,"regions":0,"pe":0},{"pid":504,"name":"AVGIDSMonitor.e","threads":3,"dlls":22,"sockets":0,"regions":0,"pe":0},{"pid":1740,"name":"svchost.exe","threads":6,"dlls":48,"sockets":3,"regions":0,"pe":0},{"pid":1360,"name":"avgwdsvc.exe","threads":44,"dlls":48,"sockets":33,"regions":2,"pe":0},{"pid":1212,"name":"avgfws9.exe","threads":29,"dlls":85,"sockets":6,"regions":0,"pe":0},{"pid":1520,"name":"jqs.exe","threads":5,"dlls":33,"sockets":5,"regions":0,"pe":0},{"pid":2444,"name":"avgemc.exe","threads":21,"dlls":59,"sockets":10,"regions":0,"pe":0},{"pid":2496,"name":"avgam.exe","threads":15,"dlls":27,"sockets":0,"regions":0,"pe":0},{"pid":2544,"name":"avgnsx.exe","threads":26,"dlls":32,"sockets":0,"regions":0,"pe":0},{"pid":2784,"name":"avgcsrvx.exe","threads":3,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":200,"name":"alg.exe","threads":5,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":1828,"name":"avgcsrvx.exe","threads":7,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":3272,"name":"thunderbird.exe","threads":8,"dlls":59,"sockets":18,"regions":0,"pe":0},{"pid":3316,"name":"iexplore.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3924,"name":"avgsrmax.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3476,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2208,"name":"swriter.exe","threads":1,"dlls":16,"sockets":0,"regions":0,"pe":0},{"pid":2780,"name":"soffice.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0},{"pid":3612,"name":"soffice.bin","threads":18,"dlls":176,"sockets":5,"regions":12,"pe":0},{"pid":3432,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2212,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1248,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1664,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":2596,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3164,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3908,"name":"cmd.exe","threads":1,"dlls":24,"sockets":0,"regions":0,"pe":0},{"pid":2160,"name":"mdd_1.3.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-Med-01","verdict":"None","score":0,"os":"Windows XP SP3 x86","source":"M57-Patents scenario","rules":[],"features":{"process_count":39,"unique_process_names":32,"total_threads":467,"total_handles":9680,"socket_endpoint_count":23,"tcp_handle_count":374,"udp_handle_count":17,"network_handle_count":454,"network_active_processes":15,"commandline_count":39,"powershell_count":0,"cmd_count":1,"dll_count":1387,"unique_dll_count":437,"malfind_region_count":8,"malfind_exec_write_regions":2,"malfind_affected_processes":5,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":57,"dlls":0,"sockets":351,"regions":0,"pe":0},{"pid":576,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":640,"name":"csrss.exe","threads":12,"dlls":14,"sockets":0,"regions":1,"pe":0},{"pid":664,"name":"winlogon.exe","threads":17,"dlls":86,"sockets":5,"regions":2,"pe":0},{"pid":708,"name":"services.exe","threads":17,"dlls":39,"sockets":0,"regions":0,"pe":0},{"pid":720,"name":"lsass.exe","threads":23,"dlls":58,"sockets":13,"regions":2,"pe":0},{"pid":876,"name":"svchost.exe","threads":15,"dlls":48,"sockets":0,"regions":0,"pe":0},{"pid":956,"name":"svchost.exe","threads":10,"dlls":38,"sockets":12,"regions":0,"pe":0},{"pid":1052,"name":"svchost.exe","threads":86,"dlls":160,"sockets":15,"regions":0,"pe":0},{"pid":1112,"name":"svchost.exe","threads":5,"dlls":32,"sockets":6,"regions":0,"pe":0},{"pid":1232,"name":"avgchsvx.exe","threads":17,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1240,"name":"avgrsx.exe","threads":28,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":1284,"name":"svchost.exe","threads":12,"dlls":38,"sockets":8,"regions":0,"pe":0},{"pid":1436,"name":"avgcsrvx.exe","threads":8,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1792,"name":"spoolsv.exe","threads":13,"dlls":59,"sockets":7,"regions":0,"pe":0},{"pid":496,"name":"svchost.exe","threads":4,"dlls":34,"sockets":0,"regions":0,"pe":0},{"pid":360,"name":"avgwdsvc.exe","threads":34,"dlls":41,"sockets":0,"regions":0,"pe":0},{"pid":608,"name":"jqs.exe","threads":5,"dlls":33,"sockets":2,"regions":0,"pe":0},{"pid":756,"name":"winvnc4.exe","threads":3,"dlls":28,"sockets":4,"regions":0,"pe":0},{"pid":1416,"name":"explorer.exe","threads":12,"dlls":103,"sockets":5,"regions":0,"pe":0},{"pid":2044,"name":"avgemc.exe","threads":18,"dlls":0,"sockets":5,"regions":0,"pe":0},{"pid":196,"name":"avgnsx.exe","threads":10,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":1020,"name":"avgcsrvx.exe","threads":3,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":1648,"name":"hkcmd.exe","threads":2,"dlls":30,"sockets":0,"regions":0,"pe":0},{"pid":1164,"name":"jusched.exe","threads":2,"dlls":41,"sockets":8,"regions":0,"pe":0},{"pid":1276,"name":"BrStsWnd.exe","threads":3,"dlls":23,"sockets":0,"regions":0,"pe":0},{"pid":120,"name":"avgtray.exe","threads":10,"dlls":30,"sockets":0,"regions":2,"pe":0},{"pid":1664,"name":"ctfmon.exe","threads":1,"dlls":25,"sockets":0,"regions":0,"pe":0},{"pid":824,"name":"msmsgs.exe","threads":3,"dlls":43,"sockets":5,"regions":0,"pe":0},{"pid":2092,"name":"soffice.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0},{"pid":2132,"name":"soffice.bin","threads":12,"dlls":154,"sockets":0,"regions":1,"pe":0},{"pid":2404,"name":"BRNIPMON.exe","threads":1,"dlls":27,"sockets":0,"regions":0,"pe":0},{"pid":2632,"name":"alg.exe","threads":5,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":3020,"name":"msimn.exe","threads":13,"dlls":95,"sockets":5,"regions":0,"pe":0},{"pid":3272,"name":"scalc.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3792,"name":"soffice.bin","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":952,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":3880,"name":"cmd.exe","threads":1,"dlls":23,"sockets":0,"regions":0,"pe":0},{"pid":3772,"name":"mdd_1.3.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-Med-02","verdict":"None","score":0,"os":"Windows XP SP3 x86","source":"M57-Patents scenario","rules":[],"features":{"process_count":38,"unique_process_names":31,"total_threads":557,"total_handles":11051,"socket_endpoint_count":22,"tcp_handle_count":368,"udp_handle_count":19,"network_handle_count":449,"network_active_processes":15,"commandline_count":38,"powershell_count":0,"cmd_count":1,"dll_count":1386,"unique_dll_count":332,"malfind_region_count":21,"malfind_exec_write_regions":9,"malfind_affected_processes":8,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":60,"dlls":0,"sockets":344,"regions":0,"pe":0},{"pid":812,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":908,"name":"csrss.exe","threads":12,"dlls":12,"sockets":0,"regions":1,"pe":0},{"pid":932,"name":"winlogon.exe","threads":17,"dlls":78,"sockets":5,"regions":10,"pe":0},{"pid":976,"name":"services.exe","threads":16,"dlls":27,"sockets":0,"regions":0,"pe":0},{"pid":988,"name":"lsass.exe","threads":22,"dlls":58,"sockets":13,"regions":2,"pe":0},{"pid":1172,"name":"svchost.exe","threads":19,"dlls":48,"sockets":0,"regions":0,"pe":0},{"pid":1260,"name":"svchost.exe","threads":10,"dlls":38,"sockets":12,"regions":0,"pe":0},{"pid":1384,"name":"svchost.exe","threads":83,"dlls":162,"sockets":15,"regions":0,"pe":0},{"pid":1448,"name":"svchost.exe","threads":5,"dlls":32,"sockets":6,"regions":0,"pe":0},{"pid":1556,"name":"avgchsvx.exe","threads":23,"dlls":16,"sockets":0,"regions":0,"pe":0},{"pid":1568,"name":"svchost.exe","threads":11,"dlls":38,"sockets":8,"regions":0,"pe":0},{"pid":1564,"name":"avgrsx.exe","threads":28,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":1828,"name":"avgcsrvx.exe","threads":8,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":1996,"name":"spoolsv.exe","threads":14,"dlls":59,"sockets":7,"regions":0,"pe":0},{"pid":2040,"name":"AVGIDSAgent.exe","threads":31,"dlls":59,"sockets":6,"regions":2,"pe":0},{"pid":1752,"name":"svchost.exe","threads":4,"dlls":34,"sockets":0,"regions":0,"pe":0},{"pid":1788,"name":"avgwdsvc.exe","threads":43,"dlls":48,"sockets":2,"regions":2,"pe":0},{"pid":1856,"name":"avgfws9.exe","threads":29,"dlls":82,"sockets":6,"regions":0,"pe":0},{"pid":1956,"name":"jqs.exe","threads":5,"dlls":33,"sockets":2,"regions":0,"pe":0},{"pid":1324,"name":"explorer.exe","threads":12,"dlls":102,"sockets":5,"regions":0,"pe":0},{"pid":1688,"name":"avgemc.exe","threads":21,"dlls":59,"sockets":10,"regions":1,"pe":0},{"pid":2104,"name":"avgam.exe","threads":15,"dlls":27,"sockets":0,"regions":0,"pe":0},{"pid":2332,"name":"avgnsx.exe","threads":19,"dlls":32,"sockets":0,"regions":0,"pe":0},{"pid":2508,"name":"avgcsrvx.exe","threads":3,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":2612,"name":"hkcmd.exe","threads":2,"dlls":30,"sockets":0,"regions":0,"pe":0},{"pid":2620,"name":"avgtray.exe","threads":18,"dlls":34,"sockets":0,"regions":2,"pe":0},{"pid":2684,"name":"jusched.exe","threads":1,"dlls":21,"sockets":0,"regions":0,"pe":0},{"pid":2772,"name":"BrStsWnd.exe","threads":3,"dlls":23,"sockets":0,"regions":0,"pe":0},{"pid":2788,"name":"msmsgs.exe","threads":4,"dlls":43,"sockets":5,"regions":1,"pe":0},{"pid":2808,"name":"ctfmon.exe","threads":1,"dlls":25,"sockets":0,"regions":0,"pe":0},{"pid":3016,"name":"avgcsrvx.exe","threads":4,"dlls":10,"sockets":0,"regions":0,"pe":0},{"pid":3280,"name":"BRNIPMON.exe","threads":1,"dlls":31,"sockets":0,"regions":0,"pe":0},{"pid":3316,"name":"AVGIDSMonitor.e","threads":3,"dlls":22,"sockets":0,"regions":0,"pe":0},{"pid":1612,"name":"alg.exe","threads":5,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":720,"name":"avgcmgr.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":4032,"name":"cmd.exe","threads":1,"dlls":23,"sockets":0,"regions":0,"pe":0},{"pid":4044,"name":"mdd_1.3.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-Med-03","verdict":"None","score":0,"os":"Windows XP SP3 x86","source":"M57-Patents scenario","rules":[],"features":{"process_count":26,"unique_process_names":21,"total_threads":362,"total_handles":7849,"socket_endpoint_count":24,"tcp_handle_count":373,"udp_handle_count":15,"network_handle_count":446,"network_active_processes":12,"commandline_count":26,"powershell_count":0,"cmd_count":1,"dll_count":1159,"unique_dll_count":358,"malfind_region_count":13,"malfind_exec_write_regions":10,"malfind_affected_processes":4,"injected_pe_count":0,"injected_pe_processes":0},"processes":[{"pid":4,"name":"System","threads":64,"dlls":0,"sockets":346,"regions":0,"pe":0},{"pid":876,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":924,"name":"csrss.exe","threads":11,"dlls":14,"sockets":0,"regions":1,"pe":0},{"pid":948,"name":"winlogon.exe","threads":17,"dlls":86,"sockets":5,"regions":10,"pe":0},{"pid":992,"name":"services.exe","threads":15,"dlls":27,"sockets":0,"regions":0,"pe":0},{"pid":1004,"name":"lsass.exe","threads":22,"dlls":58,"sockets":13,"regions":1,"pe":0},{"pid":1180,"name":"svchost.exe","threads":17,"dlls":48,"sockets":0,"regions":0,"pe":0},{"pid":1268,"name":"svchost.exe","threads":10,"dlls":38,"sockets":12,"regions":0,"pe":0},{"pid":1392,"name":"svchost.exe","threads":74,"dlls":163,"sockets":15,"regions":0,"pe":0},{"pid":1532,"name":"svchost.exe","threads":5,"dlls":32,"sockets":6,"regions":0,"pe":0},{"pid":1644,"name":"svchost.exe","threads":11,"dlls":38,"sockets":8,"regions":0,"pe":0},{"pid":1908,"name":"spoolsv.exe","threads":10,"dlls":50,"sockets":0,"regions":0,"pe":0},{"pid":1796,"name":"svchost.exe","threads":4,"dlls":34,"sockets":0,"regions":0,"pe":0},{"pid":1728,"name":"avgwdsvc.exe","threads":25,"dlls":26,"sockets":0,"regions":0,"pe":0},{"pid":320,"name":"jqs.exe","threads":5,"dlls":33,"sockets":2,"regions":0,"pe":0},{"pid":1348,"name":"explorer.exe","threads":13,"dlls":99,"sockets":5,"regions":0,"pe":0},{"pid":2684,"name":"hkcmd.exe","threads":2,"dlls":30,"sockets":0,"regions":0,"pe":0},{"pid":2804,"name":"jusched.exe","threads":2,"dlls":41,"sockets":8,"regions":0,"pe":0},{"pid":2832,"name":"ctfmon.exe","threads":1,"dlls":25,"sockets":0,"regions":0,"pe":0},{"pid":2956,"name":"alg.exe","threads":6,"dlls":33,"sockets":3,"regions":0,"pe":0},{"pid":3048,"name":"soffice.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0},{"pid":3088,"name":"soffice.bin","threads":7,"dlls":84,"sockets":0,"regions":1,"pe":0},{"pid":3936,"name":"avgfws9.exe","threads":25,"dlls":85,"sockets":6,"regions":0,"pe":0},{"pid":188,"name":"thunderbird.exe","threads":10,"dlls":60,"sockets":17,"regions":0,"pe":0},{"pid":3296,"name":"cmd.exe","threads":1,"dlls":23,"sockets":0,"regions":0,"pe":0},{"pid":1768,"name":"mdd_1.3.exe","threads":1,"dlls":15,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-High-01","verdict":"High","score":3,"os":"Windows XP SP3 x86","source":"Cridex banking trojan","rules":[{"family":"code_injection","points":3,"detail":"2 injected regions containing a PE header, across 2 processes (threshold 2)"}],"features":{"process_count":17,"unique_process_names":12,"total_threads":297,"total_handles":4448,"socket_endpoint_count":19,"tcp_handle_count":149,"udp_handle_count":15,"network_handle_count":206,"network_active_processes":8,"commandline_count":17,"powershell_count":0,"cmd_count":0,"dll_count":738,"unique_dll_count":220,"malfind_region_count":14,"malfind_exec_write_regions":12,"malfind_affected_processes":4,"injected_pe_count":2,"injected_pe_processes":2},"processes":[{"pid":4,"name":"System","threads":53,"dlls":0,"sockets":136,"regions":0,"pe":0},{"pid":368,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":584,"name":"csrss.exe","threads":9,"dlls":12,"sockets":0,"regions":1,"pe":0},{"pid":608,"name":"winlogon.exe","threads":23,"dlls":68,"sockets":5,"regions":11,"pe":0},{"pid":652,"name":"services.exe","threads":16,"dlls":26,"sockets":0,"regions":0,"pe":0},{"pid":664,"name":"lsass.exe","threads":24,"dlls":57,"sockets":13,"regions":0,"pe":0},{"pid":824,"name":"svchost.exe","threads":20,"dlls":46,"sockets":0,"regions":0,"pe":0},{"pid":908,"name":"svchost.exe","threads":9,"dlls":37,"sockets":12,"regions":0,"pe":0},{"pid":1004,"name":"svchost.exe","threads":64,"dlls":135,"sockets":15,"regions":0,"pe":0},{"pid":1056,"name":"svchost.exe","threads":5,"dlls":27,"sockets":6,"regions":0,"pe":0},{"pid":1220,"name":"svchost.exe","threads":15,"dlls":42,"sockets":8,"regions":0,"pe":0},{"pid":1484,"name":"explorer.exe","threads":17,"dlls":91,"sockets":8,"regions":1,"pe":1},{"pid":1512,"name":"spoolsv.exe","threads":14,"dlls":49,"sockets":0,"regions":0,"pe":0},{"pid":1640,"name":"reader_sl.exe","threads":5,"dlls":18,"sockets":0,"regions":1,"pe":1},{"pid":788,"name":"alg.exe","threads":7,"dlls":32,"sockets":3,"regions":0,"pe":0},{"pid":1136,"name":"wuauclt.exe","threads":8,"dlls":48,"sockets":0,"regions":0,"pe":0},{"pid":1588,"name":"wuauclt.exe","threads":5,"dlls":48,"sockets":0,"regions":0,"pe":0}]},{"id":"XP-High-02","verdict":"High","score":3,"os":"Windows XP SP2 x86","source":"Honeynet Forensic Challenge 3 (Zeus)","rules":[{"family":"code_injection","points":3,"detail":"26 injected regions containing a PE header, across 24 processes (threshold 2)"}],"features":{"process_count":27,"unique_process_names":20,"total_threads":369,"total_handles":6918,"socket_endpoint_count":35,"tcp_handle_count":490,"udp_handle_count":29,"network_handle_count":591,"network_active_processes":13,"commandline_count":27,"powershell_count":0,"cmd_count":0,"dll_count":1299,"unique_dll_count":331,"malfind_region_count":36,"malfind_exec_write_regions":33,"malfind_affected_processes":25,"injected_pe_count":26,"injected_pe_processes":24},"processes":[{"pid":4,"name":"System","threads":58,"dlls":0,"sockets":459,"regions":3,"pe":3},{"pid":548,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":612,"name":"csrss.exe","threads":12,"dlls":11,"sockets":0,"regions":1,"pe":0},{"pid":644,"name":"winlogon.exe","threads":21,"dlls":69,"sockets":5,"regions":8,"pe":1},{"pid":688,"name":"services.exe","threads":16,"dlls":42,"sockets":0,"regions":1,"pe":1},{"pid":700,"name":"lsass.exe","threads":22,"dlls":60,"sockets":13,"regions":2,"pe":1},{"pid":852,"name":"vmacthlp.exe","threads":1,"dlls":25,"sockets":0,"regions":1,"pe":1},{"pid":880,"name":"svchost.exe","threads":28,"dlls":65,"sockets":12,"regions":1,"pe":1},{"pid":948,"name":"svchost.exe","threads":10,"dlls":42,"sockets":12,"regions":1,"pe":1},{"pid":1040,"name":"svchost.exe","threads":83,"dlls":155,"sockets":23,"regions":1,"pe":1},{"pid":1100,"name":"svchost.exe","threads":6,"dlls":35,"sockets":10,"regions":1,"pe":1},{"pid":1244,"name":"svchost.exe","threads":19,"dlls":47,"sockets":12,"regions":1,"pe":1},{"pid":1460,"name":"spoolsv.exe","threads":11,"dlls":61,"sockets":0,"regions":1,"pe":1},{"pid":1628,"name":"vmtoolsd.exe","threads":5,"dlls":78,"sockets":6,"regions":1,"pe":1},{"pid":1836,"name":"VMUpgradeHelper","threads":4,"dlls":38,"sockets":0,"regions":1,"pe":1},{"pid":2024,"name":"alg.exe","threads":7,"dlls":39,"sockets":3,"regions":1,"pe":1},{"pid":1756,"name":"explorer.exe","threads":14,"dlls":87,"sockets":6,"regions":2,"pe":1},{"pid":1108,"name":"VMwareTray.exe","threads":1,"dlls":34,"sockets":5,"regions":1,"pe":1},{"pid":1116,"name":"VMwareUser.exe","threads":4,"dlls":53,"sockets":0,"regions":1,"pe":1},{"pid":1132,"name":"wscntfy.exe","threads":1,"dlls":23,"sockets":0,"regions":1,"pe":1},{"pid":244,"name":"msiexec.exe","threads":5,"dlls":45,"sockets":0,"regions":1,"pe":1},{"pid":452,"name":"msiexec.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0},{"pid":440,"name":"wuauclt.exe","threads":8,"dlls":51,"sockets":0,"regions":1,"pe":1},{"pid":232,"name":"wuauclt.exe","threads":4,"dlls":51,"sockets":0,"regions":1,"pe":1},{"pid":888,"name":"firefox.exe","threads":9,"dlls":55,"sockets":15,"regions":1,"pe":1},{"pid":1752,"name":"AcroRd32.exe","threads":8,"dlls":93,"sockets":10,"regions":1,"pe":1},{"pid":1384,"name":"svchost.exe","threads":9,"dlls":38,"sockets":0,"regions":1,"pe":1}]},{"id":"XP-High-03","verdict":"High","score":3,"os":"Windows XP SP3 x86","source":"Shylock banking trojan","rules":[{"family":"code_injection","points":3,"detail":"9 injected regions containing a PE header, across 8 processes (threshold 2)"}],"features":{"process_count":30,"unique_process_names":23,"total_threads":400,"total_handles":6944,"socket_endpoint_count":20,"tcp_handle_count":121,"udp_handle_count":11,"network_handle_count":189,"network_active_processes":12,"commandline_count":30,"powershell_count":0,"cmd_count":1,"dll_count":1307,"unique_dll_count":309,"malfind_region_count":50,"malfind_exec_write_regions":19,"malfind_affected_processes":24,"injected_pe_count":9,"injected_pe_processes":8},"processes":[{"pid":4,"name":"System","threads":60,"dlls":0,"sockets":93,"regions":0,"pe":0},{"pid":384,"name":"smss.exe","threads":3,"dlls":2,"sockets":0,"regions":0,"pe":0},{"pid":612,"name":"csrss.exe","threads":12,"dlls":12,"sockets":0,"regions":2,"pe":0},{"pid":636,"name":"winlogon.exe","threads":16,"dlls":63,"sockets":5,"regions":10,"pe":0},{"pid":680,"name":"services.exe","threads":15,"dlls":27,"sockets":0,"regions":1,"pe":0},{"pid":692,"name":"lsass.exe","threads":24,"dlls":58,"sockets":13,"regions":2,"pe":0},{"pid":852,"name":"vmacthlp.exe","threads":1,"dlls":17,"sockets":0,"regions":0,"pe":0},{"pid":868,"name":"svchost.exe","threads":17,"dlls":48,"sockets":0,"regions":2,"pe":0},{"pid":944,"name":"svchost.exe","threads":11,"dlls":38,"sockets":12,"regions":1,"pe":0},{"pid":1040,"name":"MsMpEng.exe","threads":16,"dlls":41,"sockets":5,"regions":0,"pe":0},{"pid":1076,"name":"svchost.exe","threads":87,"dlls":162,"sockets":15,"regions":2,"pe":0},{"pid":1200,"name":"svchost.exe","threads":6,"dlls":32,"sockets":6,"regions":1,"pe":0},{"pid":1336,"name":"svchost.exe","threads":14,"dlls":38,"sockets":6,"regions":1,"pe":0},{"pid":1516,"name":"spoolsv.exe","threads":14,"dlls":62,"sockets":0,"regions":2,"pe":0},{"pid":1752,"name":"explorer.exe","threads":32,"dlls":117,"sockets":15,"regions":3,"pe":2},{"pid":1812,"name":"svchost.exe","threads":4,"dlls":33,"sockets":0,"regions":0,"pe":0},{"pid":1876,"name":"VMwareTray.exe","threads":3,"dlls":42,"sockets":5,"regions":1,"pe":1},{"pid":1888,"name":"VMwareUser.exe","threads":9,"dlls":67,"sockets":0,"regions":2,"pe":1},{"pid":1900,"name":"msseces.exe","threads":11,"dlls":40,"sockets":0,"regions":3,"pe":1},{"pid":1912,"name":"ctfmon.exe","threads":3,"dlls":35,"sockets":0,"regions":4,"pe":1},{"pid":2000,"name":"svchost.exe","threads":6,"dlls":38,"sockets":0,"regions":2,"pe":0},{"pid":200,"name":"vmtoolsd.exe","threads":5,"dlls":91,"sockets":6,"regions":1,"pe":0},{"pid":424,"name":"VMUpgradeHelper","threads":5,"dlls":32,"sockets":0,"regions":2,"pe":0},{"pid":2028,"name":"wscntfy.exe","threads":3,"dlls":31,"sockets":0,"regions":1,"pe":1},{"pid":2068,"name":"TPAutoConnSvc.e","threads":5,"dlls":34,"sockets":5,"regions":1,"pe":0},{"pid":2272,"name":"alg.exe","threads":7,"dlls":33,"sockets":3,"regions":1,"pe":0},{"pid":3372,"name":"TPAutoConnect.e","threads":3,"dlls":41,"sockets":0,"regions":2,"pe":1},{"pid":2396,"name":"msiexec.exe","threads":5,"dlls":39,"sockets":0,"regions":2,"pe":0},{"pid":3756,"name":"cmd.exe","threads":3,"dlls":34,"sockets":0,"regions":1,"pe":1},{"pid":3128,"name":"cmd.exe","threads":0,"dlls":0,"sockets":0,"regions":0,"pe":0}]}],"groups":[["Processes",["process_count","unique_process_names","total_threads","total_handles"]],["Network",["socket_endpoint_count","tcp_handle_count","udp_handle_count","network_handle_count","network_active_processes"]],["Command lines",["commandline_count","powershell_count","cmd_count"]],["Modules",["dll_count","unique_dll_count"]],["Injection",["malfind_region_count","malfind_exec_write_regions","malfind_affected_processes","injected_pe_count","injected_pe_processes"]]]}</script>
+<script>
+(function(){
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("corpus").textContent);
+  var dumps = DATA.dumps, groups = DATA.groups;
+  var openId = "XP-High-02", filter = "all";
+
+  function el(t, c, x){
+    var n = document.createElement(t);
+    if(c) n.className = c;
+    if(x !== undefined && x !== null) n.textContent = String(x);
+    return n;
+  }
+  function low(s){ return String(s).toLowerCase(); }
+
+  var totReg = 0, totPe = 0, imgsPe = 0;
+  dumps.forEach(function(d){
+    totReg += d.features.malfind_region_count;
+    totPe += d.features.injected_pe_count;
+    if(d.features.injected_pe_count > 0) imgsPe++;
+  });
+  document.getElementById("f-reg").textContent = totReg;
+  document.getElementById("f-pe").textContent = totPe;
+  document.getElementById("f-imgs").textContent = imgsPe + " of 12";
+
+  (function hexRow(){
+    var bytes = ["4d","5a","90","00","03","00","00","00","04","00","00","00","ff","ff","00","00"];
+    var host = document.getElementById("hexrow");
+    host.appendChild(el("span", "off", "00000000  "));
+    bytes.forEach(function(b, i){
+      host.appendChild(el("span", i < 2 ? "sig" : "", b));
+      host.appendChild(document.createTextNode(i === 7 ? "  " : " "));
+    });
+    var asc = el("span", "asc");
+    asc.appendChild(document.createTextNode(" |"));
+    asc.appendChild(el("em", null, "MZ"));
+    asc.appendChild(document.createTextNode("..............|"));
+    host.appendChild(asc);
+    host.setAttribute("aria-label",
+      "Offset zero: 4d 5a 90 00 03 00 00 00 04 00 00 00 ff ff 00 00, ASCII M Z followed by dots");
+  })();
+
+  var body = document.getElementById("rows");
+
+  function buildTrace(d){
+    var card = el("div", "card");
+    card.appendChild(el("h3", null, "Why this verdict"));
+    if(!d.rules.length){
+      var q = el("p", "quiet");
+      q.appendChild(el("b", null, "No rule fired. "));
+      q.appendChild(document.createTextNode(
+        "Volatility reported " + d.features.malfind_region_count +
+        " injected regions here, none of which opens with a program header. That is the " +
+        "expected state of a working machine, so the score stays at zero."));
+      card.appendChild(q);
+      return card;
+    }
+    var wrap = el("div", "trace");
+    d.rules.forEach(function(r){
+      var row = el("div", "trace-row");
+      row.appendChild(el("div", "p", "+" + r.points));
+      var right = el("div");
+      right.appendChild(el("div", "f", r.family.replace(/_/g, " ")));
+      right.appendChild(el("div", "d", r.detail));
+      row.appendChild(right);
+      wrap.appendChild(row);
+    });
+    card.appendChild(wrap);
+    return card;
+  }
+
+  function buildFeatures(d){
+    var card = el("div", "card");
+    card.appendChild(el("h3", null, "Extracted features"));
+    var tbl = el("table", "kv"), tb = el("tbody");
+    groups.forEach(function(g){
+      var gr = el("tr", "grp"), gd = el("td", null, g[0]);
+      gd.colSpan = 2;
+      gr.appendChild(gd);
+      tb.appendChild(gr);
+      g[1].forEach(function(key){
+        if(!(key in d.features)) return;
+        var tr = el("tr");
+        tr.appendChild(el("td", null, key.replace(/_/g, " ")));
+        tr.appendChild(el("td", "r", d.features[key]));
+        tb.appendChild(tr);
+      });
+    });
+    tbl.appendChild(tb);
+    card.appendChild(tbl);
+    return card;
+  }
+
+  function buildProcs(d){
+    var card = el("div", "card");
+    card.appendChild(el("h3", null, "Processes (" + d.processes.length + ")"));
+    var bar = el("div", "chips");
+    var defs = [["all","All"], ["reg","Injected memory"], ["pe","Carries a program"]];
+    var listHost = el("div", "plist");
+
+    function paint(){
+      listHost.textContent = "";
+      var rows = d.processes.filter(function(p){
+        if(filter === "pe") return p.pe > 0;
+        if(filter === "reg") return p.regions > 0;
+        return true;
+      }).sort(function(a, b){ return b.pe - a.pe || b.regions - a.regions || a.pid - b.pid; });
+
+      if(!rows.length){
+        listHost.appendChild(el("p", "empty", "No process in this image matches that filter."));
+        return;
+      }
+      var t = el("table"), tb = el("tbody"), hr = el("tr");
+      // Column headers stay visible while the list scrolls.
+      ["Process", "PID", "Threads", "DLLs", "Sockets", "Regions", "Headers"].forEach(function(h){
+        hr.appendChild(el("th", null, h));
+      });
+      var th = el("thead");
+      th.appendChild(hr);
+      t.appendChild(th);
+      rows.forEach(function(p){
+        var tr = el("tr", p.pe > 0 ? "hit" : "");
+        tr.appendChild(el("td", null, p.name));
+        [p.pid, p.threads, p.dlls, p.sockets, p.regions].forEach(function(v){
+          var td = el("td", null, v);
+          td.style.textAlign = "right";
+          tr.appendChild(td);
+        });
+        var last = el("td", null, p.pe > 0 ? p.pe : "—");
+        last.style.textAlign = "right";
+        tr.appendChild(last);
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb);
+      listHost.appendChild(t);
+    }
+
+    defs.forEach(function(def){
+      var b = el("button", "chip", def[1]);
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(filter === def[0]));
+      b.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        filter = def[0];
+        Array.prototype.forEach.call(bar.querySelectorAll(".chip"), function(x, i){
+          x.setAttribute("aria-pressed", String(defs[i][0] === filter));
+        });
+        paint();
+      });
+      bar.appendChild(b);
+    });
+    card.appendChild(bar);
+    card.appendChild(listHost);
+    paint();
+    return card;
+  }
+
+  function render(){
+    body.textContent = "";
+    dumps.forEach(function(d){
+      var pe = d.features.injected_pe_count;
+      var isOpen = d.id === openId;
+
+      var tr = el("tr", "row" + (isOpen ? " open" : ""));
+      tr.tabIndex = 0;
+      tr.setAttribute("role", "button");
+      tr.setAttribute("aria-expanded", String(isOpen));
+
+      var first = el("td");
+      first.appendChild(el("span", "disc", isOpen ? "−" : "+"));
+      first.appendChild(document.createTextNode(d.id.replace("XP-", "")));
+      tr.appendChild(first);
+      tr.appendChild(el("td", "hide", d.source));
+      tr.appendChild(el("td", "hide", d.os));
+      tr.appendChild(el("td", "r num", d.processes.length));
+      tr.appendChild(el("td", "r num", d.features.malfind_region_count));
+      tr.appendChild(el("td", "r num pe" + (pe ? "" : " zero"), pe ? pe : "—"));
+      tr.appendChild(el("td", "r num", d.score));
+      var vt = el("td");
+      vt.appendChild(el("span", "state " + low(d.verdict), d.verdict));
+      tr.appendChild(vt);
+
+      function toggle(){ openId = isOpen ? null : d.id; filter = "all"; render(); }
+      tr.addEventListener("click", toggle);
+      tr.addEventListener("keydown", function(ev){
+        if(ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); toggle(); }
+      });
+      body.appendChild(tr);
+
+      if(isOpen){
+        var dr = el("tr", "detail"), dc = el("td");
+        dc.colSpan = 8;
+        var pad = el("div", "detail-pad"), cards = el("div", "cards");
+        cards.appendChild(buildTrace(d));
+        cards.appendChild(buildProcs(d));
+        cards.appendChild(buildFeatures(d));
+        pad.appendChild(cards);
+        dc.appendChild(pad);
+        dr.appendChild(dc);
+        body.appendChild(dr);
+      }
+    });
+  }
+
+  render();
+})();
+</script>
+
+
+
+
+
+
+</body>
+</html>
